@@ -1,6 +1,5 @@
 **/.idea
 **/*.iml
 .DS_Store
-**/target
-*.jar
 **/.project
+bluej/build.properties
