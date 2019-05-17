@@ -18,3 +18,12 @@ Maybe I'll even implement fully automated updates later.
 8. Run the `dist` ant task of the `greenfoot` project
     - The jar will be placed in `greenfoot/package/Greenfoot-core-3.0.jar`
 9. Use the files locally or push them into a nexus
+
+## Publishing
+
+1. Update current Greenfoot version in the `.version` file
+2. Download the latest Greenfoot source zip
+3. Extract everything in `bluej` and `greenfoot` to the folders in this project
+4. Replace the sample JAVA_HOME path in `bluej/build.properties.template` with `<JAVA_HOME>`
+5. Commit everything and build locally (clean afterwards using the `clean` ant targets ob both greenfoot and bluej)
+6. Wait for GitLab CI to publish, fix any bugs if it fails
