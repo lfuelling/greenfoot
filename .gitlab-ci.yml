@@ -7,8 +7,6 @@ stages:
 build:
   stage: build
   script:
-    - echo ${env.MAVEN_REPO_USER}
-    - exit 1
     - cp bluej/build.properties.template bluej/build.properties
     - sed -i -e "s,<JAVA_HOME>,`echo $JAVA_HOME`,g" bluej/build.properties
     - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml copy-imagelib
@@ -25,7 +23,8 @@ deploy:
     - build
   before_script: []
   script:
-    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
-    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
+    - echo deploying as $MAVEN_REPO_USER
+    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core." -Drepo.user=$MAVEN_REPO_USER -Drepo.pass=$MAVEN_REPO_PASS
+    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot." -Drepo.user=$MAVEN_REPO_USER -Drepo.pass=$MAVEN_REPO_PASS
   only:
     - tags
