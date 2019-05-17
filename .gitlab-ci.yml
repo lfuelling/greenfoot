@@ -7,6 +7,8 @@ stages:
 build:
   stage: build
   script:
+    - echo ${env.MAVEN_REPO_USER}
+    - exit 1
     - cp bluej/build.properties.template bluej/build.properties
     - sed -i -e "s,<JAVA_HOME>,`echo $JAVA_HOME`,g" bluej/build.properties
     - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml copy-imagelib
