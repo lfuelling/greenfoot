@@ -12,7 +12,7 @@ build:
   stage: build
   script:
     - cp bluej/build.properties.template bluej/build.properties
-    - sed -i -e "s/<JAVA_HOME>/`$(echo $JAVA_HOME)`/g" bluej/build.properties
+    - sed -i -e "s/<JAVA_HOME>/`echo $JAVA_HOME`/g" bluej/build.properties
     - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml copy-imagelib
     - ant -lib bluej/lib/ -buildfile bluej/build.xml jar-core
     - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml dist
