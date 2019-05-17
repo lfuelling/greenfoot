@@ -1,0 +1,28 @@
+image: circleci/java:8-jdk
+
+stages:
+  - build
+  - deploy
+
+bluej:
+  stage: build
+  script:
+    - cp bluej/build.properties.template bluej/build.properties
+    - overviewer.py --config=overviewer.conf
+  artifacts:
+    paths:
+      - mcmap/
+
+pages:
+  stage: deploy
+  dependencies:
+    - map
+  before_script: []
+  script:
+    - mv mcmap/ public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 15 days
+  only:
+    - master

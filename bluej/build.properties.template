@@ -15,7 +15,7 @@
 # compilation should be done on the minimum supported JDK for
 # BlueJ (which is currently Java 8)
 #####################################################################
-build_java_home=/home/lerk/.jabba/jdk/amazon-corretto@1.8.212-04.2
+build_java_home=<JAVA_HOME>
 
 java_command_dir_name=bin
 
