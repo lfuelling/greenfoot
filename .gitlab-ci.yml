@@ -4,10 +4,6 @@ stages:
   - build
   - deploy
 
-variables:
-  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
-  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-
 build:
   stage: build
   script:
@@ -27,7 +23,7 @@ deploy:
     - build
   before_script: []
   script:
-    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
-    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
+    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
+    - mvn -s .m2/settings.xml --batch-mode -Dmaven.repo.local=.m2/repository deploy:deploy-file -Durl=https://nexus.gammel.cloud/repository/maven-releases/ -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
   only:
     - tags
