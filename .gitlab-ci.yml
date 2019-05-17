@@ -4,25 +4,30 @@ stages:
   - build
   - deploy
 
-bluej:
+variables:
+  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+build:
   stage: build
   script:
     - cp bluej/build.properties.template bluej/build.properties
-    - overviewer.py --config=overviewer.conf
+    - sed -i -e 's/<JAVA_HOME>/$(echo $JAVA_HOME)/g' bluej/build.properties
+    - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml copy-imagelib
+    - ant -lib bluej/lib/ -buildfile bluej/build.xml jar-core
+    - ant -lib greenfoot/lib/ -buildfile greenfoot/build.xml dist
   artifacts:
     paths:
-      - mcmap/
+      - bluej/lib/bluejcore.jar
+      - greenfoot/package/Greenfoot-core-3.0.jar
 
-pages:
+deploy:
   stage: deploy
   dependencies:
-    - map
+    - build
   before_script: []
   script:
-    - mv mcmap/ public/
-  artifacts:
-    paths:
-      - public
-    expire_in: 15 days
+    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=$MAVEN_REPO_URL -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
+    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=$MAVEN_REPO_URL -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
   only:
-    - master
+    - tags
