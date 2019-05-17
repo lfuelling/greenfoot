@@ -27,7 +27,7 @@ deploy:
     - build
   before_script: []
   script:
-    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=$MAVEN_REPO_URL -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
-    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=$MAVEN_REPO_URL -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
+    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=${MAVEN_REPO_URL} -DrepositoryId=gammel -Dfile=bluej/lib/bluejcore.jar -DgroupId=org.bluej -DartifactId=bluej-core -Dversion=greenfoot-$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="BlueJ Core."
+    - mvn $MAVEN_CLI_OPTS deploy:deploy-file -Durl=${MAVEN_REPO_URL} -DrepositoryId=gammel -Dfile=greenfoot/package/Greenfoot-core-3.0.jar -DgroupId=org.greenfoot -DartifactId=greenfoot -Dversion=$(cat .version) -Dpackaging=jar -DgeneratePom=true -DgeneratePom.description="Greenfoot."
   only:
     - tags
