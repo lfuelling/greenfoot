@@ -13,8 +13,8 @@ Maybe I'll even implement fully automated updates later.
 4. Open the "Project Structure" dialog to set the JDK to 1.8 and language level to 8
 5. Edit the `bluej/build.properties.template` file and save it as `bluej/build.properties`
 6. Run the `copy-imagelib` ant task of the `greenfoot` project
-6. Run the `jar-core` ant task of the `bluej` project
-  6.1 The jar will be placed in `bluej/lib/bluejcore.jar`
-7. Run the `dist` ant task of the `greenfoot` project
-  7.1 The jar will be placed in `greenfoot/package/Greenfoot-core-3.0.jar`
-8. Use the files locally or push them into a nexus
+7. Run the `jar-core` ant task of the `bluej` project
+    7.1 The jar will be placed in `bluej/lib/bluejcore.jar`
+8. Run the `dist` ant task of the `greenfoot` project
+    8.1 The jar will be placed in `greenfoot/package/Greenfoot-core-3.0.jar`
+9. Use the files locally or push them into a nexus
