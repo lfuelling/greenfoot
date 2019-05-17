@@ -1,0 +1,98 @@
+Prerequisites:
+ build.properties in both the greenfoot and bluej source directories should be 
+ modified to match your configuration.  (For BlueJ, copy build.properties.template
+ to build.properties and then edit. In most cases the Greenfoot build.properties
+ will not need to be modified.)
+
+
+Building Greenfoot:
+
+
+Before build:
+
+ 1. Check the copyright years (for the "About" dialog). The line to be updated is
+    'menu.help.copyright.line0', which is in the labels file:
+    'labels/english/greenfoot/greenfoot-labels'.
+
+ 2. Update version number in build.xml. If there are API changes, make sure that:
+    - the API version has also been updated (see instructions in comments in build.xml)
+    - the labels have been updated with description of the API changes (see build.xml)
+    - the @version javadoc tag has been correctly set for any user-visible Greenfoot
+      classes which are affected by the API changes.
+    Add a GUID to bluej/package/winsetup/version-guid file (Get one at guidgen.com)
+    Then, run "ant update-version-number". This propagates the changes to various files.
+    
+ 3. Test bundled scenarios and make sure they are compatible with the new API version.
+ 
+Build process:
+ 
+ 4. Run "ant clean" in both bluej and greenfoot directories, and ensure source tree is clean.
+ 5. Run "ant ready-to-run-greenfoot" in the bluej directory.
+ 6. Run "ant ready-to-run" in the greenfoot directory.
+ 7. Different Systems:
+    - Debian package:
+      - run "fakeroot ant debian" to build the Debian/Ubuntu ".deb" package. You can only do this on
+        a system which has the "dpkg-deb" and "fakeroot" utilities installed. Alternatively:
+      - run "ant dist" followed by "ant debian-dist", the latter must be run as root.
+    - Mac: 
+      - check prerequisites are installed (see bluej/doc/HOWTO.make-mac-release).
+      - run "ant mac" (see below for more details).
+    - Windows:
+      - check prerequisites are installed (see bluej/doc/HOWTO.make-win-version).
+      - run "ant windows" (see below for more details).
+    - Generic installer:
+      - the generic installer is build as part of any of the above, and can be built alone
+        using "ant dist".
+    
+Post build:
+    
+ 8. Copy the builds and source to greenfoot.org.
+ 9. Run "ant urls-rc" to check files are in the right place.
+ 
+Release:
+
+10. Create/update release tag in version control (GREENFOOT-RELEASE-x.y.z).
+11. Create new version in bug tracker.
+12. Update web pages (see below).
+
+If necessary:
+13. If the API version has changed, copy Greenfoot-core-X.X.X-jar to the gallery:
+    /home/mygame/mygame/public/sharedjars/
+14. If any of the 3rd party libraries have changed copy them to:
+    /home/mygame/mygame/public/sharedjars/
+
+
+
+Building and Signing on Mac:
+    To build:
+        - run "ant mac" in the greenfoot source directory.
+        
+    Note: In order for the bundle to be signed, the certificate must be in the keychain on the
+    machine on which the above command is run (and an internet connection must be active). If it
+    is not available, the bundle should still be generated but the signing step will fail.
+
+    To sign manually (now done automatically):
+        - On the terminal, execute:
+            codesign -s "Developer ID Application: Michael Kolling" Greenfoot.app/Contents/JDK/
+
+            codesign -f -s "Developer ID Application: Michael Kolling" Greenfoot.app
+
+    To verify manually (now done automatically):
+        - On the terminal, execute:
+            codesign --verify --deep --verbose=4 Greenfoot.app/
+
+            spctl -a -t exec -vv Greenfoot.app/
+
+
+ 
+Web-pages to update on www.greenfoot.org.
+These need uploading files to the greenfoot home folder:
+  (/home/greenfoot/www/download/files/javadoc)
+    update javadoc with the generated doc from create-api-doc
+These pages can be edited directly:
+  download
+  download/installation 
+  site/download_source
+  download/old-downloads.html
+  version_history
+ 

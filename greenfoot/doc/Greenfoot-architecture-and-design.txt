@@ -1,0 +1,69 @@
+Greenfoot Architecture and Design
+---------------------------------
+
+Davin McCall, 2013
+
+This document describes the architecture and design of the Greenfoot software.
+
+
+1. INTRODUCTION
+
+This document is written for the benefit of anyone who wants to develop, fix bugs in,
+or otherwise understand the Greenfoot software. It describes the overall design and
+points out key locations in code.
+
+
+2. OVERVIEW
+
+Importantly, Greenfoot is essentially an extension to BlueJ; to understand Greenfoot it
+is first necessary to understand BlueJ. Please see BlueJ documentation. In particular,
+it is important to understand the separate virtual machines - the "main VM" for BlueJ
+itself (including the user interface) and the "debug VM" which runs user code (and small
+pieces of BlueJ support code).
+
+Greenfoot follows the same pattern: the main VM runs the interface, and the debug VM
+runs the user code.  A shared memory file is used to send user interface commands
+(keypresses, etc) from the main VM to the debug VM, and to send back the latest world
+image from the debug VM to the main VM.
+
+
+3. GREENFOOT STARTUP
+
+The BlueJ part of Greenfoot launches first. BlueJ is run in a special "Greenfoot" mode
+which changes certain aspects of its behaviour; so, there is some Greenfoot-specific code
+in BlueJ (however this is and should be kept to a practical minimum).
+
+BlueJ will load Greenfoot as an extension - the class GreenfootExtension is loaded
+and the startup method is called. At this point Greenfoot registers an event listener
+(using BlueJ's extensions mechanism) to be notified when BlueJ has finished starting up.
+
+When BlueJ has completed normal startup, it calls the initialOpenComplete() method of the
+greenfoot.guifx.GreenfootGuiHandler class, which proceeds to create the user interface
+(GreenfootStage).
+
+So far, everything described as occurred on the main VM.
+
+When a scenario is opened (including the case where Greenfoot is started and the previous
+scenario is re-opened automatically), the ProjectManager (greenfoot.core.ProjectManager) is
+notified; it registers a listener on the debugger for the project (GreenfootDebugHandler) which
+will be notified when the secondary VM has started (processDebuggerEvent(...)) and which will
+launch the secondary VM side of Greenfoot using BlueJ's invocation mechanism. Specifically it
+creates an instance of GreenfootLauncherDebugVM in the debug VM, passing various important paths
+(including the path of the shared memory file for communication) as arguments.
+
+At this point, the debug VM is initialised, and startup is complete.
+
+
+4. THE SIMULATION THREAD AND EXECUTION OF USER CODE
+
+The Simulation class, derived from Thread, represents the simulation thread. It can be paused,
+resumed and disabled; listeners can be attached to be notified of changes in the simulation
+state. A 'runLater' method is provided, similar to EventQueue.invokeLater(...), to queue a task
+to be run on the simulation thread.
+
+
+6. GRAPHICAL USER INTERFACE
+
+The GUI elements are in the greenfoot.guifx.* package. The main windows is represented by
+greenfoot.guifx.GreenfootStage. The class browser (the tree view that displays classes) is in
+greenfoot.guifx.classes.*.
