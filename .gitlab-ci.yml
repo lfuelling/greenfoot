@@ -1,4 +1,4 @@
-image: circleci/java:8-jdk
+image: lerk/corretto-8-ant-maven
 
 stages:
   - build
