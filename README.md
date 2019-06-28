@@ -5,6 +5,30 @@ This is a fork of the [official Greenfoot source](https://www.greenfoot.org/site
 Since I need the bluej and greenfoot jar files for [my greenfoot-maven example](https://lerks.blog/making-games-with-greenfoot-without-greenfoot/) and other projects, I decided to have the whole source in git. 
 Maybe I'll even implement fully automated updates later.
 
+## Usage
+
+To use this Greenfoot version in Maven, just add the following to your `pom.xml`:
+
+```
+  <dependencies>
+    <dependency>
+      <groupId>org.greenfoot</groupId>
+      <artifactId>greenfoot</artifactId>
+      <version>3.6.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bluej</groupId>
+      <artifactId>bluej-core</artifactId>
+      <version>greenfoot-3.6.0</version>
+    </dependency>
+  </dependencies>
+```
+
+### Java 8
+
+The last version supporting Java 8 is `3.5.4` (`greenfoot-3.5.4` for bluej). 
+
+
 ## Developing/Building
 
 1. "Open" the project folder using IntelliJ
