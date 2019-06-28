@@ -10,7 +10,7 @@ Maybe I'll even implement fully automated updates later.
 1. "Open" the project folder using IntelliJ
 2. Open the "Ant Build" panel in IntelliJ
 3. Click the plus icon in the panel to add `greenfoot/build.xml` and `bluej/build.xml` to the panel
-4. Open the "Project Structure" dialog to set the JDK to 1.8 and language level to 8
+4. Open the "Project Structure" dialog to set the JDK to 11 and language level to 11
 5. Edit the `bluej/build.properties.template` file and save it as `bluej/build.properties`
 6. Run the `copy-imagelib` ant task of the `greenfoot` project
 7. Run the `jar-core` ant task of the `bluej` project

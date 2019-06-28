@@ -1061,7 +1061,6 @@ public class ClassTarget extends DependentTarget
             if (newCompiledState)
             {
                 setState(State.COMPILED);
-                endCompile();
             }
         }
 
@@ -1451,10 +1450,10 @@ public class ClassTarget extends DependentTarget
     /**
      * Called when this class target has just been successfully compiled.
      * 
-     * We load the compiled class if possible and check it the compilation has
+     * We load the compiled class if possible and check if the compilation has
      * resulted in it taking a different role (ie abstract to applet)
      */
-    private void endCompile()
+    public void analyseAfterCompile()
     {
         Class<?> cl = getPackage().loadClass(getQualifiedName());
 
@@ -2401,11 +2400,18 @@ public class ClassTarget extends DependentTarget
 
     /**
      * Process a double click on this target. That is: open its editor.
+     *
+     * @param  openInNewWindow if this is true, the editor opens in a new window
      */
     @Override
-    public void doubleClick()
+    public void doubleClick(boolean openInNewWindow)
     {
-        open();
+        Editor editor = getEditor();
+        if(editor == null)
+        {
+            getPackage().showError("error-open-source");
+        }
+        editor.setEditorVisible(true, openInNewWindow);
     }
     /**
      * Set the size of this target.

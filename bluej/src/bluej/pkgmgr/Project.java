@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg 
+ Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg 
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -260,8 +260,8 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
             sourcePath.add(new DocPathEntry(jdkSourceZip, ""));
         }
         else {
-            File javaHomeParent = javaHome.getParentFile();
-            jdkSourceZip = new File(javaHomeParent, "src.zip");
+            File javaHomeLib = new File(javaHome, "lib");
+            jdkSourceZip = new File(javaHomeLib, "src.zip");
             if (jdkSourceZip.exists()) {
                 sourcePath.add(new DocPathEntry(jdkSourceZip, ""));
             }
@@ -278,6 +278,13 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
         if (jdkSourcePath != null) {
             sourcePath.add(new DocPathEntry(new File(jdkSourcePath), ""));
         }
+        
+        File javafxSourceZip = Boot.getInstance().getJavaFXSourcePath();
+        if (javafxSourceZip.isFile())
+        {
+            sourcePath.add(new DocPathEntry(javafxSourceZip, ""));
+        }
+        
 
         this.projectDir = projectDir;
         libraryUrls = getLibrariesClasspath();
@@ -471,7 +478,7 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
             while (!done)
             {
                 // Get a file name to save under
-                File newName = FileUtility.getSaveProjectFX(null, Config.getString("pkgmgr.saveAs.title"));
+                File newName = FileUtility.getSaveProjectFX(null, null, Config.getString("pkgmgr.saveAs.title"));
 
                 if (newName != null) {
                     int result = FileUtility.copyDirectory(projectDir, newName);
@@ -1536,7 +1543,7 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
                 ClassTarget classTarget = (ClassTarget) target;
                 Editor editor = classTarget.getEditor();
                 if (editor != null) {
-                    editor.setEditorVisible(true);
+                    editor.setEditorVisible(true, false);
                 }
             }
         }
@@ -1914,12 +1921,13 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
                     
                     PkgMgrFrame[] frames = PkgMgrFrame.getAllProjectFrames(Project.this);
 
-                    if (frames == null) {
-                        return;
+                    if (frames != null)
+                    {
+                        for (int i = 0; i < frames.length; i++)
+                        {
+                            frames[i].setDebuggerState(newState);
+                        }
                     }
-
-                    for (int i = 0; i < frames.length; i++)
-                        frames[i].setDebuggerState(newState);
 
                     // check whether we just got a freshly created VM
                     if ((oldState == Debugger.NOTREADY) &&

@@ -14,13 +14,13 @@
      This is the only place you need to change the version number.
      After changing the version number the target "update-version-number" should be run -->
     <property name="bluej.version.major" value="4" />
-    <property name="bluej.version.minor" value="1" />
-    <property name="bluej.version.release" value="3" />
+    <property name="bluej.version.minor" value="2" />
+    <property name="bluej.version.release" value="1" />
     <property name="bluej.version.suffix" value="" />
     <!-- suffix with no spaces, eg "pre2" -->
     <property name="bluej.version.nonspace.suffix" value="" />
     <!-- Suffix added after version number in output files -->
-    <property name="bluej.rcsuffix" value=""/>
+    <property name="bluej.rcsuffix" value="-rc2"/>
     
     <property name="bluej.version" value="${bluej.version.major}.${bluej.version.minor}.${bluej.version.release}${bluej.version.suffix}" />
     <property name="bluej.version.nosuffix" value="${bluej.version.major}.${bluej.version.minor}.${bluej.version.release}" />
@@ -54,12 +54,36 @@
     <property name="lang-stride.jar" value="${bluej_home}/lib/lang-stride.jar"/>
     <property name="greenfoot-native.jar" value="${bluej_home}/lib/greenfoot-native.jar"/>
 
+    <path id="javafx.class.path">
+        <pathelement location="${openjfx_path}/lib/javafx.base.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.controls.jar"/>
+        <!-- Needed because of NSMenuFX -->
+        <pathelement location="${openjfx_path}/lib/javafx.fxml.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.graphics.jar"/>
+        <!-- Needed for sound support, which is BlueJ because of Stride support for sound preview -->
+        <pathelement location="${openjfx_path}/lib/javafx.media.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.properties.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.swing.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.web.jar"/>
+        <!-- Ubuntu version, needed for building on Ubuntu if using apt-installed JavaFX: -->
+        <pathelement location="${openjfx_path}/javafx-base.jar"/>
+        <pathelement location="${openjfx_path}/javafx-controls.jar"/>
+        <!-- Needed because of NSMenuFX -->
+        <pathelement location="${openjfx_path}/javafx-fxml.jar"/>
+        <pathelement location="${openjfx_path}/javafx-graphics.jar"/>
+        <!-- Needed for sound support, which is BlueJ because of Stride support for sound preview -->
+        <pathelement location="${openjfx_path}/javafx-media.jar"/>
+        <pathelement location="${openjfx_path}/javafx-properties.jar"/>
+        <pathelement location="${openjfx_path}/javafx-swing.jar"/>
+        <pathelement location="${openjfx_path}/javafx-web.jar"/>
+    </path>
+    
     <!-- Set up classpath (does not include jar files built by us) -->
     <path id="bluej.class.path">
-        <pathelement location="${bluej_home}/lib/AppleJavaExtensions.jar"/>
         <pathelement location="${bluej_home}/lib/junit-4.11.jar"/>
         <pathelement location="${bluej_home}/lib/hamcrest-core-1.3.jar"/>
         <pathelement location="${bluej_home}/lib/svnkit.jar"/>
+        <pathelement location="${bluej_home}/lib/javassist-3.18.0.jar"/>
         <pathelement location="${bluej_home}/lib/svnkit-javahl.jar"/>
         <pathelement location="${bluej_home}/lib/eddsa-0.2.0.jar"/>
         <pathelement location="${bluej_home}/lib/jbcrypt-1.0.0.jar"/>
@@ -71,16 +95,15 @@
         <pathelement location="${bluej_home}/lib/httpcore-4.1.jar"/>
         <pathelement location="${bluej_home}/lib/httpmime-4.1.1.jar"/>
         <pathelement location="${bluej_home}/lib/commons-logging-api-1.1.2.jar"/>
+        <pathelement location="${bluej_home}/lib/commons-vfs2-2.0.jar"/>
         <pathelement location="${bluej_home}/lib/diffutils-1.2.1.jar"/>
         <pathelement location="${bluej_home}/lib/xom-1.2.9.jar"/>
         <pathelement location="${bluej_home}/lib/guava-17.0.jar"/>
-        <pathelement location="${bluej_home}/lib/javassist-3.18.0.jar"/>
-        <pathelement location="${bluej_home}/lib/commons-vfs2-2.0.jar"/>
         <pathelement location="${bluej_home}/lib/jsch-0.1.53.jar"/>
         <pathelement location="${bluej_home}/lib/org.eclipse.jgit-4.9.0.jar"/>
         <pathelement location="${bluej_home}/lib/nsmenufx-2.1.4.jar"/>
         <pathelement location="${bluej_home}/lib/richtextfx-fat-0.9.0.jar"/>
-        <pathelement location="${build_java_home}/jre/lib/ext/jfxrt.jar"/>
+        <pathelement location="${bluej_home}/lib/classgraph-4.2.6.jar"/>
     </path>
 
     <import file="shared.xml"/>
@@ -97,14 +120,16 @@
             <classpath>
                 <pathelement location="${threadchecker.build}"/>
                 <pathelement location="${threadchecker.pluginbuild}"/>
-                <pathelement location="${bluej_home}/lib/AppleJavaExtensions.jar"/>
+                <path refid="javafx.class.path"/>
                 <pathelement location="${bluej_home}/lib/nsmenufx-2.1.4.jar"/>
             </classpath>
             <compilerarg value="-Xmaxerrs"/><compilerarg value="100"/>
-            <compilerarg value="-Xplugin:threadchecker.TCPlugin org.reflections"/>
+            <compilerarg value="-Xplugin:threadchecker.TCPlugin"/>
+            <!-- we use some private packages/classes currently: -->
+            <compilerarg line="--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED"/>
         </compile>
-    	<copy todir="${boot.build}">
-    	    <fileset dir="${boot.resources}" />
+        <copy todir="${boot.build}">
+            <fileset dir="${boot.resources}" />
         </copy>
     </target>
 
@@ -120,7 +145,6 @@
 
             >
             <classpath>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
                 <pathelement location="${threadchecker.build}"/>
             </classpath>
         </compile>
@@ -133,7 +157,7 @@
     <!--
       -  Compile the core classes (includes extension and editor classes)
      -->
-    <target name="compile-core" depends="compile-threadchecker">
+    <target name="compile-core" depends="compile-boot,compile-threadchecker">
         <mkdir dir="${core.build}"/>
         <!-- Compile the java code from ${core.src} into ${core.build} -->
         <echo message="Excluding: ${srcexcludes}" />
@@ -143,14 +167,14 @@
                            bluej/editor/moe/**,
                            ${srcexcludes}">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
                 <pathelement location="${threadchecker.build}"/>
                 <pathelement location="${threadchecker.pluginbuild}"/>
-                <pathelement location="${boot.jar}"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
+                <pathelement location="${boot.build}"/>
             </classpath>
             <compilerarg value="-Xmaxerrs"/><compilerarg value="1000"/>
-            <compilerarg value="-Xplugin:threadchecker.TCPlugin org.reflections"/>
+            <compilerarg value="-Xplugin:threadchecker.TCPlugin"/>
 
             <!-- <compilerarg value="-J-XX:+UnlockCommercialFeatures"/>
             <compilerarg value="-J-XX:+FlightRecorder"/>
@@ -165,10 +189,11 @@
         <compile srcdir="${test.src}"
                  destdir="${test.build}">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
+                <pathelement location="${threadchecker.build}"/>
                 <pathelement location="${boot.build}"/>
                 <pathelement location="${core.build}"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
             </classpath>
         </compile>
     </target>
@@ -264,7 +289,6 @@
             -->
             <classpath>
                 <pathelement location="${boot.jar}"/>
-                <pathelement location="${run_java_home}/lib/tools.jar"/>
                 <pathelement location="/System/Library/Java"/>
             </classpath>
             <jvmarg value="-Djavafx.embed.singleThread=true"/>
@@ -275,7 +299,7 @@
         <ant dir="package" target="dist"/>
     </target>
 
-    <target name="dist-greenfoot" depends="ready-to-run-greenfoot,check-licences">
+    <target name="dist-greenfoot" depends="ready-to-run-greenfoot">
         <ant dir="package" antfile="greenfoot-build.xml" target="dist"/>
     </target>
 
@@ -309,20 +333,14 @@
         <ant dir="package" target="debian-dist"/>
     </target>
 
-    <target name="test" depends="compile-core, compile-test">
-        <!-- Need to turn verbosity back on to see the test output: -->
-        <script language="javascript">
-            var logger = project.getBuildListeners().firstElement();
-            logger.setMessageOutputLevel(2);
-        </script>
-        
+    <target name="test" depends="compile-boot, compile-core, compile-test">
         <junit printsummary="yes" haltonfailure="yes">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
-                <pathelement location="${boot.jar}"/>
-                <pathelement location="${core.jar}"/>
+                <pathelement location="${boot.build}"/>
+                <pathelement location="${core.build}"/>
                 <pathelement location="${extension.jar}"/>
-                <pathelement location="${run_java_home}/lib/tools.jar"/>
                 <pathelement location="${editor.jar}"/>
                 <pathelement location="${lang-stride.jar}"/>
                 <pathelement location="${test.build}"/>
@@ -359,7 +377,6 @@
             <classpath>
                 <path refid="bluej.class.path"/>
                 <pathelement location="${boot.jar}"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
             </classpath>
         </javadoc>
     </target>
@@ -436,7 +453,7 @@
         <mkdir dir="util/classes"/>
         <compile srcdir="util/src" destdir="util/classes"/>
         <mkdir dir="boot/resources/bluej"/>
-        <java classname="DrawVersionOnSplash" classpath="util/classes">
+        <java classname="DrawVersionOnSplash" classpath="util/classes" fork="yes" jvm="${run_java_home}/${java_command_dir_name}/java">
             <arg value="resources/unversioned-bluej-splash.png"/> <!-- original -->
             <arg value="Version ${bluej.version}"/> <!-- text -->
             <arg value="${bluej_home}/lib/fonts/SourceSansPro-Bold.ttf"/> <!-- font -->
@@ -445,7 +462,7 @@
             <arg value="130"/> <!-- Y position -->
             <arg value="boot/resources/bluej/gen-bluej-splash.png"/> <!-- destination -->
         </java>
-        <java classname="DrawVersionOnSplash" classpath="util/classes">
+        <java classname="DrawVersionOnSplash" classpath="util/classes" fork="yes" jvm="${run_java_home}/${java_command_dir_name}/java">
             <arg value="resources/unversioned-bluej-splash@2x.png"/> <!-- original -->
             <arg value="Version ${bluej.version}"/> <!-- text -->
             <arg value="${bluej_home}/lib/fonts/SourceSansPro-Bold.ttf"/> <!-- font -->
@@ -491,27 +508,9 @@
         <ant dir="package" target="clean"/>
         <delete quiet="true" dir="${threadchecker.build}" />
         <delete quiet="true" dir="${threadchecker.pluginbuild}" />
+    	<delete quiet="true" dir="${test.build}" />
     </target>
-
-    <target name="pi4j-compile">
-        <exec dir="${bluej_home}/pi4j" executable="mvn">
-            <arg line="package" />
-        </exec>
-    </target>
-    
-    <target name="clean-pi4j">
-        <exec dir="${bluej_home}/pi4j" executable="mvn">
-            <arg line="clean" />
-        </exec>
-    </target>
-    
-    <target name="pi4j-move-to-lib" depends="pi4j-compile">
-        <move file="${bluej_home}/pi4j/pi4j-distribution/target/distro-contents/lib/pi4j-device.jar" todir="${bluej_home}/lib/userlib" />
-        <move file="${bluej_home}/pi4j/pi4j-distribution/target/distro-contents/lib/pi4j-gpio-extension.jar" todir="${bluej_home}/lib/userlib" />
-        <move file="${bluej_home}/pi4j/pi4j-distribution/target/distro-contents/lib/pi4j-service.jar" todir="${bluej_home}/lib/userlib" />
-        <move file="${bluej_home}/pi4j/pi4j-distribution/target/distro-contents/lib/pi4j-core.jar" todir="${bluej_home}/lib/userlib" />
-    </target>
-    
+   
     <target name="check-licences" description="Check that no un-vetted additional libraries have been added to the source tree">
         <!-- The purpose of this target is to help ensure that libraries do not get added to the source
              tree without properly checking and complying with their license(s). -->
@@ -533,9 +532,8 @@
                      are met! -->
 
                 <exclude name="antlr-runtime-3.4.jar"/>
-                <exclude name="AppleJavaExtensions.jar"/>
                 <exclude name="commons-logging-api-1.1.2.jar"/>
-                <exclude name="commons-vfs2-2.0.jar"/>
+                <exclude name="classgraph-4.2.6.jar"/>
                 <exclude name="diffutils-1.2.1.jar"/>
                 <exclude name="eddsa-0.2.0.jar"/>
                 <exclude name="guava-17.0.jar"/>
@@ -543,7 +541,6 @@
                 <exclude name="httpclient-4.1.1.jar"/>
                 <exclude name="httpcore-4.1.jar"/>
                 <exclude name="httpmime-4.1.1.jar"/>
-                <exclude name="javassist-3.18.0.jar"/>
                 <exclude name="jbcrypt-1.0.0.jar"/>
                 <exclude name="junit-4.11.jar"/>
                 <exclude name="nsmenufx-2.1.4.jar"/>
@@ -568,11 +565,11 @@
         
         <!-- Then check no licenses are missing: -->
         <fail message="Missing third party licenses: ${missing.licenses}">
-            <condition>
+            <!-- condition>
                 <not>
                     <equals arg1="${missing.licenses}" arg2=""/>
                 </not>
-            </condition>
+            </condition -->
         </fail>
     </target>
 </project>

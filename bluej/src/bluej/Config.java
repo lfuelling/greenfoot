@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -27,7 +27,6 @@ import java.awt.Font;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
-import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -39,6 +38,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
+import java.time.LocalDate;
 import java.util.*;
 
 import javafx.beans.property.BooleanProperty;
@@ -61,7 +61,6 @@ import javafx.stage.Screen;
 import javafx.stage.Window;
 
 import javax.swing.ImageIcon;
-import javax.swing.KeyStroke;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
@@ -109,12 +108,10 @@ public final class Config
     public static final String BLUEJ_OPENPACKAGE = "bluej.openPackage";
     public static final String bluejDebugLogName = "bluej-debuglog.txt";
     public static final String greenfootDebugLogName = "greenfoot-debuglog.txt";
-    private static final int SHORTCUT_MASK =
-        Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
     // Bit ugly having it here, but it's needed by MiscPrefPanel (which may just be in BlueJ)
     // and by Greenfoot
-    public static final KeyStroke GREENFOOT_SET_PLAYER_NAME_SHORTCUT =
-        KeyStroke.getKeyStroke(KeyEvent.VK_P, SHORTCUT_MASK | InputEvent.SHIFT_DOWN_MASK);
+    public static final KeyCodeCombination GREENFOOT_SET_PLAYER_NAME_SHORTCUT = 
+        new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
     /** name of the icons file for the VM on Mac */
     private static final String BLUEJ_DEBUG_DOCK_ICON = "vm.icns";
     private static final String GREENFOOT_DEBUG_DOCK_ICON = "greenfootvm.icns";
@@ -134,7 +131,6 @@ public final class Config
     public static Rectangle screenBounds; // maximum dimensions of screen
     public static String debugLogName = bluejDebugLogName;
     public static List<String> fontOptions = new ArrayList<>();
-    private static Boolean isRaspberryPi = null;
     // a border for components with keyboard focus
     private static Border focusBorder;
     // a border for components without keyboard focus
@@ -160,6 +156,7 @@ public final class Config
     private static boolean isDebugVm = true; // Default to true, will be corrected on main VM
     public static final String EDITOR_COUNT_JAVA = "session.numeditors.java";
     public static final String EDITOR_COUNT_STRIDE = "session.numeditors.stride";
+    public static final String MESSAGE_LATEST_SEEN = "bluej.latest.msg";
     private static long MAX_DEBUG_LOG_SIZE = 1048576;
 
     /**
@@ -494,35 +491,6 @@ public final class Config
         return osname.startsWith("Mac");
     }
     
-    /**
-     * Tell us whether we are running on Raspberry Pi. The first call of this
-     * method performs the check and puts its result in the static variable with
-     * the same same. Other calls just return the result stored in the variable.
-     */
-    public static boolean isRaspberryPi() {
-        if (Config.isRaspberryPi == null) {
-            boolean result = false;
-            if (Config.isLinux()) {
-                try {
-                    Scanner scanner = new Scanner(new File(
-                            "/proc/cpuinfo"));
-                    while (scanner.hasNextLine()) {
-                        String lineFromFile = scanner.nextLine();
-                        if (lineFromFile.startsWith("Hardware") && lineFromFile.contains("BCM")) {
-                            result = true;
-                            break;
-                        }
-                    }
-                    scanner.close();
-                } catch (FileNotFoundException fne) {
-
-                }
-            }
-            Config.isRaspberryPi = result;
-        }
-        return Config.isRaspberryPi;
-    }
-
     private static boolean osVersionNumberAtLeast(int... target)
     {
         return versionAtLeast(System.getProperty("os.version"), target);
@@ -617,6 +585,16 @@ public final class Config
     }
     
     /**
+     * Whether we need to make all dialogs resizable, due to bug:
+     * https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8198761
+     */
+    public static boolean makeDialogsResizable()
+    {
+        // The bug only affects Linux:
+        return Config.isLinux();
+    }
+    
+    /**
      * Return the name of a directory within the user's home directory
      * that should be used for storing BlueJ user preferences.
      * 
@@ -690,6 +668,7 @@ public final class Config
                         Debug.message("BlueJ version " + Boot.BLUEJ_VERSION);
                     }
                     Debug.message("Java version " + System.getProperty("java.version"));
+                    Debug.message("JavaFX version " + System.getProperty("javafx.runtime.version"));
                     Debug.message("Virtual machine: " +
                             System.getProperty("java.vm.name") + " " +
                             System.getProperty("java.vm.version") +
@@ -783,6 +762,16 @@ public final class Config
     {
         userProps.setProperty(EDITOR_COUNT_JAVA, "0");
         userProps.setProperty(EDITOR_COUNT_STRIDE, "0");
+        saveAppProperties();
+    }
+
+    /**
+     * Records the date of the latest seen message from the server and saves the bluej.properties file.
+     * @param latestSeen The id (start date) of the latest message the user has seen.
+     */
+    public static void recordLatestSeen(LocalDate latestSeen)
+    {
+        userProps.setProperty(MESSAGE_LATEST_SEEN, latestSeen.toString());
         saveAppProperties();
     }
 
@@ -1029,39 +1018,6 @@ public final class Config
     public static boolean hasAcceleratorKey(String strname)
     {
         return langProps.getProperty(strname, strname).indexOf('@') != -1;
-    }    
-    
-    /**
-     * parses the labels file and creates a KeyStroke with the right accelerator
-     * key and modifiers
-     * @param strname
-     * @return a KeyStroke
-     */
-    public static KeyStroke getAcceleratorKey(String strname)
-    {
-        // In principle, hasAcceleratorKey() should be invoked before invoking
-        // getAcceleratorKey() to take a suitable action according to the case
-        // in place. However, we should check again here as a precaution to avoid
-        // any future bug or NPE been thrown for no reason.
-        if (!hasAcceleratorKey(strname))
-            return null;
-
-        int index;
-        int modifiers = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
-        String str = langProps.getProperty(strname, strname);
-        String keyString;
-        index = str.indexOf('@');
-        index++;
-        if(str.charAt(index) == '^') { //then the modifiers is CTRL + SHIFT
-            index++;
-            modifiers |= InputEvent.SHIFT_MASK;
-        }
-        keyString = str.substring(index).toUpperCase();
-        if(keyString.length() == 1) {
-            return KeyStroke.getKeyStroke(keyString.codePointAt(0), modifiers);
-        }
-        KeyStroke k1= KeyStroke.getKeyStroke(keyString);
-        return KeyStroke.getKeyStroke(k1.getKeyCode(), modifiers);
     }
 
     @OnThread(Tag.FX)
@@ -1981,28 +1937,6 @@ public final class Config
                             new Color(195, 195, 195)));
         }
         return normalBorder;
-    }
-
-    public static boolean isRetinaDisplay()
-    {
-     if (isMacOS()) {
-           // From http://bulenkov.com/2013/06/23/retina-support-in-oracle-jdk-1-7/
-           GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
-           final GraphicsDevice device = env.getDefaultScreenDevice();
-
-           try {
-               Field field = device.getClass().getDeclaredField("scale");
-               if (field != null) {
-                   field.setAccessible(true);
-                   Object scale = field.get(device);
-
-                   if (scale instanceof Integer && ((Integer)scale) == 2) {
-                       return true;
-                   }
-               }
-           } catch (Exception ignore) {}
-       }
-       return false;
     }
 
     public static void loadFXFonts()

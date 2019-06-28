@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -212,52 +212,17 @@ public class VMReference
 
         // launch the VM using the runtime classpath.
         Boot boot = Boot.getInstance();
-        File [] filesPath = Utility.urlsToFiles(boot.getRuntimeUserClassPath());
-        File [] libraryPaths = Utility.urlsToFiles(libraries);
-        File [] classPath = new File[filesPath.length + libraryPaths.length];
-        System.arraycopy(filesPath, 0, classPath, 0, filesPath.length);
-        System.arraycopy(libraryPaths, 0, classPath, filesPath.length, libraryPaths.length);
+        List<File> filesPath = Utility.urlsToFiles(boot.getRuntimeUserClassPath());
+        List<File> javafxPath = Utility.urlsToFiles(boot.getJavaFXClassPath());
+        List<File> libraryPaths = Utility.urlsToFiles(libraries);
+        List<File> classPath = new ArrayList<>();
+        classPath.addAll(filesPath);
+        classPath.addAll(javafxPath);
+        classPath.addAll(libraryPaths);
         String allClassPath = Utility.toClasspathString(classPath);
         
         ArrayList<String> paramList = new ArrayList<String>(11);
         
-        //check if it is a raspberry pi AND we are running BlueJ (not Greenfoot). 
-        //If so, in order to make Pi4J work out of the box, run JVM with sudo.
-        if (Config.isRaspberryPi() && !Config.isGreenfoot()) {
-            Process sudoProcess = null;
-            if (PrefMgr.getFlag(PrefMgr.START_WITH_SUDO)) {
-                try {
-                    //start with sudo == true OR there is no sudo option in preferences.
-                    //test if sudo works.
-                    sudoProcess = Runtime.getRuntime().exec("/usr/bin/sudo -n echo \"\" ");
-                    sudoProcess.waitFor();
-                } catch (Exception ex) {}
-                if (sudoProcess != null && sudoProcess.exitValue() == 0){
-                    //succes! We will start with sudo
-                    paramList.add("/usr/bin/sudo");
-                    if (System.getenv("XAUTHORITY") != null && !System.getenv("XAUTHORITY").isEmpty()) {
-                        paramList.add("XAUTHORITY=" + System.getenv("XAUTHORITY"));
-                    } else {
-                        //there is no environment variable XAUTHORITY set.
-                        //check if ~/.Xauthority file does exists.
-                        String xAuthorityPath = System.getProperty("user.home") + "/.Xauthority";
-                        File f = new File(xAuthorityPath);
-                        if (f.isFile()) {
-                            //Xauthority does exist. Use it.
-                            paramList.add("XAUTHORITY=" + System.getProperty("user.home") + "/.Xauthority");
-                        }
-                    }
-                } else {
-                    //fail. Don't start with sudo, warn the user and  
-                    //set start with sudo to false
-                    Platform.runLater(() ->
-                        DialogManager.showTextFX(null, Config.getString("raspberrypi.error.sudo"))
-                    );
-                    PrefMgr.setFlag(PrefMgr.START_WITH_SUDO, false);
-                }
-            }
-            
-        }
         /* // Uncomment this if you want to get a command window showing
            // for the debug VM on Windows.  Useful to let you hit Ctrl+Break and see thread dump
            // in case of deadlock
@@ -1981,16 +1946,19 @@ public class VMReference
     }
     
     /**
-     * Run a unit test method (including setup/teardown).
-     * @param cl     The class containing the method
-     * @param method The test method to run
-     * @return  null if the test passed, or an ArrayReference if it fails, with:
-     *          [0] = failure type ("failure"/"error")
-     *          [1] = the exception message
-     *          [2] = the stack trace
-     *          [3] = the class of the failure point
-     *          [4] = the source file name containing the failure point
-     *          [5] = the line number of the failure point
+     * Run a JUnit test on a single test method or all test methods (including setup/teardown).
+     * @param cl     The class containing the test methods
+     * @return  null if all tests passed, or an ArrayReference if any fails, 
+     *          which has a length of [1 + 7*(number of failures/errors)]
+     *          The first item of the array contains the runtime of executing all tests,
+     *          then each failure/error has seven consecutive items in the array which contains: 
+     *          [1] = the exception message (or "no exception message")<br>
+     *          [2] = the stack trace as a string (or "no stack trace")<br>
+     *          [3] = the name of the class in which the exception/failure occurred<br>
+     *          [4] = the source filename for where the exception/failure occurred<br>
+     *          [5] = the name of the method in which the exception/failure occurred<br>
+     *          [6] = the line number where the exception/failure occurred (a string)<br>
+     *          [7] = "failure" or "error" (string)<br>with:
      * @throws InvocationException
      */
     public Value invokeRunTest(String cl, String method)
@@ -2149,16 +2117,29 @@ public class VMReference
         // method being called, so we catch the exception and use a more
         // forceful approach in that case.
         
-        try {
-            StringReference s = machine.mirrorOf(value);
-            s.disableCollection();
+        try 
+        {
+            StringReference s = null;
+            
+            if (value != null)
+            {
+                s = machine.mirrorOf(value);
+                s.disableCollection();
+            }
             setStaticFieldValue(cl, fieldName, s);
-            s.enableCollection();
+            if (value != null)
+            {
+                s.enableCollection();
+            }
         }
         catch(ObjectCollectedException oce) {
             machine.suspend();
-            StringReference s = machine.mirrorOf(value);
-            setStaticFieldValue(cl, fieldName, s);
+            StringReference s;
+            if (value != null)
+            {
+                s = machine.mirrorOf(value);
+                setStaticFieldValue(cl, fieldName, s);
+            }
             machine.resume();
         }
     }

@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2009,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -41,19 +41,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
@@ -70,7 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import javax.swing.UIDefaults;
+import javax.swing.*;
 import javax.swing.text.TabExpander;
 
 import bluej.prefmgr.PrefMgr;
@@ -87,8 +76,6 @@ import nu.xom.Serializer;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 import bluej.Config;
-
-import com.apple.eawt.Application;
 
 /**
  * Some generally useful utility methods available to all of bluej.
@@ -560,7 +547,7 @@ public class Utility
     public static void appToFront()
     {
         if (Config.isMacOS()) {
-            Application.getApplication().requestForeground(false);
+            SwingUtilities.invokeLater(() -> Desktop.getDesktop().requestForeground(false));
             return;
         }
 
@@ -967,34 +954,17 @@ public class Utility
      * @param files an array of files.
      * @return a non null string, possibly empty.
      */
-    public static final String toClasspathString(File[] files)
+    public static final String toClasspathString(List<File> files)
     {
-        if ((files == null) || (files.length < 1)) {
+        if (files == null) {
             return "";
         }
 
-        boolean addSeparator = false; // Do not add a separator at the beginning
-        StringBuffer buf = new StringBuffer();
-
-        for (int index = 0; index < files.length; index++) {
-            File file = files[index];
-
-            // It may happen that one entry is null, strange, but just skip it.
-            if (file == null) {
-                continue;
-            }
-
-            if (addSeparator) {
-                buf.append(File.pathSeparatorChar);
-            }
-
-            buf.append(file.toString());
-
-            // From now on, you have to add a separator.
-            addSeparator = true;
-        }
-
-        return buf.toString();
+        // It may happen that one entry is null, strange, but just skip it.
+        return files.stream()
+                .filter(f -> f != null)
+                .map(f -> f.toString())
+                .collect(Collectors.joining(File.pathSeparator));
     }
     
     /**
@@ -1003,10 +973,10 @@ public class Utility
      * @param urls  an array of URL to be converted
      * @return  a non null (but possibly empty) array of File
      */
-    public static final File[] urlsToFiles(URL[] urls)
+    public static final List<File> urlsToFiles(URL[] urls)
     {
         if ((urls == null) || (urls.length < 1)) {
-            return new File[0];
+            return Collections.emptyList();
         }
 
         List<File> rlist = new ArrayList<File>();
@@ -1023,7 +993,7 @@ public class Utility
             }
         }
 
-        return rlist.toArray(new File[rlist.size()]);
+        return rlist;
     }
 
     /**

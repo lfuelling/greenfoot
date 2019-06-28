@@ -133,9 +133,7 @@ Alternatively:
      writing (06/2016 v3.1.7) these are:
 
        - antlr-runtime-3.4.jar
-       - AppleJavaExtensions.jar
        - commons-logging-api-1.1.2.jar
-       - commons-vfs2-2.0.jar
        - diffutils-1.2.1.jar
        - eddsa-0.2.0.jar
        - guava-17.0.jar
@@ -143,7 +141,6 @@ Alternatively:
        - httpclient-4.1.1.jar
        - httpcore-4.1.jar
        - httpmime-4.1.1.jar
-       - javassist-3.18.0.jar
        - jbcrypt-1.0.0.jar
        - jsch-0.1.53
        - junit-4.11.jar
@@ -155,9 +152,6 @@ Alternatively:
        - svnkit.jar
        - trilead-ssh2-build-217-jenkins-11.jar
        - xom-1.2.9.jar
-
-   * "Add External JARs" (or "Add Variable..." if using classpath vars): 
-     add the "tools.jar" file from your JDK in [your jdk root]\lib
 
 
 4. Configuring and running ant
@@ -217,6 +211,7 @@ Alternatively:
 
 -useclassesdir=true 
 -bluej.debug=true
+-javafxpath=/path/to/javafx
 
 
    In the JRE tab:
@@ -230,10 +225,8 @@ Alternatively:
    * The bootstrap entries should contain only the JRE Sytem Library
 
    * The user entries should contain the "bluej/boot/classes" folder
-     (Advanced..., Add Folder), and the tools.jar from the JDK (Add
-     External Jars... or Advanced..., Add Classpath Var if using
-     classpath vars).  You do not need the "classes" folder nor any of
-     the other jar files.
+     (Advanced..., Add Folder). You do not need the "classes" folder nor any
+     of the other jar files.
 
    * Apply the changes and run the configuration to test.
 

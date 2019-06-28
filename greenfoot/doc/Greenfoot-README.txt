@@ -1,4 +1,4 @@
-Greenfoot version: 3.5.4
+Greenfoot version: 3.6.0
 
 Information about Greenfoot
 -----------------------
@@ -17,6 +17,6 @@ greenfoot.properties file.
 The Greenfoot Team
 --------------
 Greenfoot is being developed by:
-King's College London: Michael Kölling, Davin McCall, Neil Brown, Amjad Altadmri
+University of Kent: Michael Kölling, Davin McCall, Neil Brown, Amjad Altadmri
 
 The copyright (c) for Greenfoot is held by P. Henriksen and M. Kölling.

@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2013,2016,2017  Michael Kolling and John Rosenberg 
+ Copyright (C) 1999-2009,2013,2016,2017,2018  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -153,9 +153,11 @@ public abstract class Target
         });
 
         pane.setOnMouseClicked(e -> {
-            if (e.getClickCount() > 1 && e.getButton() == MouseButton.PRIMARY && !e.isPopupTrigger())
-                doubleClick();
-            else if (e.getClickCount() == 1 && e.getButton() == MouseButton.PRIMARY && !e.isPopupTrigger())
+            if (e.getClickCount() > 1 && e.getButton() == MouseButton.PRIMARY && !e.isPopupTrigger() && e.isStillSincePress())
+            {
+                doubleClick(e.isShiftDown());
+            }
+            else if (e.getClickCount() == 1 && e.getButton() == MouseButton.PRIMARY && !e.isPopupTrigger() && e.isStillSincePress())
             {
                 // We first check if the user was drawing an extends arrow,
                 // in which case a click will finish that off.
@@ -618,7 +620,7 @@ public abstract class Target
     }
 
     @OnThread(Tag.FXPlatform)
-    public abstract void doubleClick();
+    public abstract void doubleClick(boolean openInNewWindow);
 
     @OnThread(Tag.FXPlatform)
     public abstract void popupMenu(int x, int y, PackageEditor editor);

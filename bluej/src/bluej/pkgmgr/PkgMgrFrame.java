@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -63,6 +63,7 @@ import bluej.pkgmgr.target.Target;
 import bluej.pkgmgr.target.role.UnitTestClassRole;
 import bluej.prefmgr.PrefMgr;
 import bluej.prefmgr.PrefMgrDialog;
+import bluej.terminal.Terminal;
 import bluej.testmgr.TestDisplayFrame;
 import bluej.testmgr.record.InvokerRecord;
 import bluej.utility.BlueJFileReader;
@@ -309,6 +310,7 @@ public class PkgMgrFrame
     private UntitledCollapsiblePane teamAndTestFoldout;
     @OnThread(Tag.FX)
     private BooleanExpression teamShowSharedButtons;
+    private AboutDialogTemplate aboutDialog = null;
 
     /**
      * Create a new PkgMgrFrame which does not show a package.
@@ -608,18 +610,6 @@ public class PkgMgrFrame
                     if (focused.booleanValue())
                     {
                         recentFrame = frame;
-                    }
-                    else
-                    {
-                        if (Config.isWinOS())
-                        {
-                            // We need to fire ESCAPE key-press and ESCAPE key-release events
-                            // because alt-tab triggers the menu and menu cannot be cancelled programmatically
-                            frame.getFXWindow().getScene().getRoot().fireEvent(
-                                    new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false));
-                            frame.getFXWindow().getScene().getRoot().fireEvent(
-                                    new KeyEvent(KeyEvent.KEY_RELEASED, "", "", KeyCode.ESCAPE, false, false, false, false));
-                        }
                     }
                 })
         );
@@ -1612,7 +1602,7 @@ public class PkgMgrFrame
     {
         String title = Config.getString( "pkgmgr.newPkg.title" );
 
-        File newnameFile = FileUtility.getSaveProjectFX(getFXWindow(), title);
+        File newnameFile = FileUtility.getSaveProjectFX(getProject(), getFXWindow(), title);
         if (newnameFile == null)
             return;
         if (! newProject(newnameFile.getAbsolutePath()))
@@ -1744,7 +1734,18 @@ public class PkgMgrFrame
         
         if (oPath == null)
             return false;
-        
+        for (File file: oPath.listFiles())
+        {
+            if (file.isDirectory())
+            { 
+                // When opening a zip file that is made on the Mac
+                // some extra directories that could be included need to be ignored 
+                if (!file.getName().equals("__MACOSX") && Project.isProject(file.getPath()))
+                {
+                    return openProject(file.getPath());
+                }
+            }
+        };
         if (Project.isProject(oPath.getPath())) {
             return openProject(oPath.getPath());
         }
@@ -2018,8 +2019,16 @@ public class PkgMgrFrame
         };
 
         Image image = new Image(Boot.class.getResource("gen-bluej-splash.png").toString());
-        new AboutDialogTemplate(getFXWindow(), Boot.BLUEJ_VERSION,
-                "http://www.bluej.org/", image, translatorNames, previousTeamMembers).showAndWait();
+        if (aboutDialog == null)
+        {
+            aboutDialog = new AboutDialogTemplate(getFXWindow().getOwner(), Boot.BLUEJ_VERSION,
+                    "http://www.bluej.org/", image, translatorNames, previousTeamMembers);
+            aboutDialog.showAndWait();
+        }
+        else if (!aboutDialog.isShowing())
+        {
+            aboutDialog.showAndWait();
+        }
     }
 
     /**
@@ -2408,18 +2417,16 @@ public class PkgMgrFrame
     }
 
     /**
-     * The user function to remove an arrow from the dagram was invoked.
-     * 
-     * public void doRemoveArrow() { pkg.setState(Package.S_DELARROW);
-     * setStatus(Config.getString("pkgmgr.chooseArrow")); }
-     */
-
-    /**
      * The user function to test all classes in a package
      */
     public void doTest()
     {
         runTestsAction.setAvailable(false);
+        Terminal terminal = this.getPackage().getProject().getTerminal();
+        if (terminal.clearOnMethodCall())
+        {
+            terminal.clear();
+        }
 
         List<ClassTarget> l = getPackage().getTestTargets();
 
@@ -2699,7 +2706,7 @@ public class PkgMgrFrame
      * in.
      */
     @Override
-    public void blueJEvent(int eventId, Object arg)
+    public void blueJEvent(int eventId, Object arg, Project prj)
     {
         switch(eventId) {
             case BlueJEvent.CREATE_VM :

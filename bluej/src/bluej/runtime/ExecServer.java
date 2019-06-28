@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2016,2017  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -37,6 +37,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -49,21 +50,23 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
-import com.sun.javafx.stage.StageHelper;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.application.Preloader;
-import javafx.collections.ListChangeListener;
+import javafx.collections.ListChangeListener.Change;
 import javafx.embed.swing.JFXPanel;
 import javafx.stage.Stage;
 
+import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Request;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 
 import bluej.utility.Utility;
+import org.junit.runner.notification.RunListener;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -552,7 +555,7 @@ public class ExecServer
             }
 
             if (testCase == null) {
-                testCase = cl.newInstance();
+                testCase = cl.getDeclaredConstructor().newInstance();
             }
                         
             // cannot execute setUp directly because it is protected
@@ -620,65 +623,98 @@ public class ExecServer
     }
 
     /**
-     * Execute a JUnit test method and return the result.<p>
-     * 
-     * The array returned in case of failure or error contains:<br>
-     *  [0] = the runtime in milliseconds expressed as a decimal integer
-     *  [1] = the exception message (or "no exception message")<br>
-     *  [2] = the stack trace as a string (or "no stack trace")<br>
-     *  [3] = the name of the class in which the exception/failure occurred<br>
-     *  [4] = the source filename for where the exception/failure occurred<br>
-     *  [5] = the name of the method in which the exception/failure occurred<br>
-     *  [6] = the line number where the exception/failure occurred (a string)<br>
-     *  [7] = "failure" or "error" (string)<br>
-     *  
-     * The array returned in case of success contains:<br>
-     *  [0] = the runtime in milliseconds expressed as a decimal integer
-     * 
-     * @return an array of length 8 on test failure/error, or of length 1 if the test passed
+     * A class to record successes and failures during a JUnit test run.
+     */
+    private static class TestRecorder extends RunListener
+    {
+        private final List<Object[]> testDetails = new ArrayList<>();
+
+        @Override
+        public void testFinished(Description description) throws Exception
+        {
+            // Finished comes after failure.  Don't add another record
+            // if we already just saw a failure for this test:
+            if (!testDetails.isEmpty() && testDetails.get(testDetails.size() - 1)[0].equals(description.getMethodName()))
+            {
+                return;
+            }
+            
+            Object[] r = new Object[8];
+            r[0] = description.getMethodName();
+            r[1] = r[2] = r[3] = r[4] = r[5] = r[6] = "";
+            r[7] = "success";
+            testDetails.add(r);
+        }
+
+        @Override
+        public void testFailure(Failure failure) throws Exception
+        {
+            Object[] r = new Object[8];
+            r[0] = failure.getDescription().getMethodName();
+            if (java.lang.AssertionError.class.isAssignableFrom(failure.getException().getClass())
+                    || failure.getException().getClass() == junit.framework.AssertionFailedError.class)
+            {
+                r[7] = "failure";
+            }
+            else
+            {
+                r[7] = "error";
+            }
+            r[1] = failure.getMessage() != null ? failure.getMessage() : "no exception message";
+            r[2] = failure.getTrace() != null ? failure.getTrace() : "no trace";
+            // search the stack trace backward until finding a class not
+            // part of the org.junit framework
+            StackTraceElement [] ste = failure.getException().getStackTrace();
+            int k = 0;
+            while(k < ste.length && ste[k].getClassName().startsWith("org.junit."))
+            {
+                k++;
+            }
+            r[3] = ste[k].getClassName();
+            r[4] = ste[k].getFileName();
+            r[5] = ste[k].getMethodName();
+            r[6] = String.valueOf(ste[k].getLineNumber());
+            testDetails.add(r);
+        }
+    }
+
+    /**
+     * Execute a JUnit test on a single test method or all test methods in a test class
+     * and return the result.<p>
+     *
+     * The array returned in case of failure/error has a length of [1 + 8*(number of methods tested)].<br>
+     * The first item of the array contains the runtime of executing all tests in milliseconds expressed  
+     * as a decimal integer, then each test has eight consecutive items in the array which 
+     * contains:<br>
+     *  [0] = the method name<br>
+     *  [1] = the exception message (or "no exception message"), blank if success<br>
+     *  [2] = the stack trace as a string (or "no stack trace"), blank if success<br>
+     *  [3] = the name of the class in which the exception/failure occurred, blank if success<br>
+     *  [4] = the source filename for where the exception/failure occurred, blank if success<br>
+     *  [5] = the name of the method in which the exception/failure occurred, blank if success<br>
+     *  [6] = the line number where the exception/failure occurred (a string), blank if success<br>
+     *  [7] = "failure" or "error" or "success" (string)<br>
+     *      
+     * @return an array of length [1 + 8*(number of tests run)]
      */
     private static Object[] runTestMethod(String className, String methodName)
     {
         Class<?> cl = loadAndInitClass(className);
-
-        Result res = (new JUnitCore()).run(Request.method(cl, methodName));
-        if (res.wasSuccessful()) {
-            Object result[] = new Object[1];
-            result[0] = String.valueOf(res.getRunTime());
-            return result;
-        } else {
-            Object result[] = new Object[8];
-            List<Failure> failures = res.getFailures();
-            for (Iterator<Failure> iterator = failures.iterator(); iterator.hasNext();) {
-                Failure failure = (Failure) iterator.next();
-                if (java.lang.AssertionError.class.isAssignableFrom(failure.getException().getClass()) 
-                        || failure.getException().getClass() == junit.framework.AssertionFailedError.class) {
-                    result[7] = "failure";
-                }
-                else {
-                    result[7] = "error";
-                }
-
-                result[0] = String.valueOf(res.getRunTime());
-                result[1] = failure.getMessage() != null ? failure.getMessage() : "no exception message";
-                result[2] = failure.getTrace() != null ? failure.getTrace() : "no trace";
-
-                // search the stack trace backward until finding a class not
-                // part of the org.junit framework
-                StackTraceElement [] ste = failure.getException().getStackTrace();
-                int i = 0; 
-                while(i < ste.length && ste[i].getClassName().startsWith("org.junit.")) {
-                    i++;
-                }
-
-                result[3] = ste[i].getClassName();
-                result[4] = ste[i].getFileName();
-                result[5] = ste[i].getMethodName();
-                result[6] = String.valueOf(ste[i].getLineNumber());
-            }
-
-            return result;
+        Result res;
+        JUnitCore jUnitCore = new JUnitCore();
+        TestRecorder recorder = new TestRecorder();
+        jUnitCore.addListener(recorder);
+        if (methodName != null)
+        {
+            res = jUnitCore.run(Request.method(cl, methodName));
         }
+        else
+        {
+            res = jUnitCore.run(Request.aClass(cl));
+        }
+        
+        return Stream.concat(Stream.of(String.valueOf(res.getRunTime())),
+            recorder.testDetails.stream().flatMap(t -> Arrays.stream(t))).toArray();
     }
 
     /**
@@ -1021,11 +1057,9 @@ public class ExecServer
         @OnThread(Tag.FXPlatform)
         public void start(Stage primaryStage) throws Exception
         {
-            // Add a listener for a new Stage appearing
-
-            // Must initialise Stage class before using StageHelper:
-            new Stage();
-            StageHelper.getStages().addListener((ListChangeListener<Stage>)c -> {
+            // Add a listener for a new Stage appearing:
+            javafx.stage.Window.getWindows().addListener(
+                    (Change<? extends javafx.stage.Window> c) -> {
                 boolean anyAdded = false;
                 while (c.next())
                     anyAdded |= c.wasAdded();

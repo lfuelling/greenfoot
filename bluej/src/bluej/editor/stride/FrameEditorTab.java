@@ -1,6 +1,6 @@
 /*
  This file is part of the Greenfoot program. 
- Copyright (C) 2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -37,7 +37,6 @@ import bluej.parser.ConstructorCompletion;
 import bluej.parser.PrimitiveTypeCompletion;
 import bluej.parser.entity.EntityResolver;
 import bluej.parser.entity.PackageOrClass;
-import bluej.pkgmgr.JavadocResolver;
 import bluej.pkgmgr.Project;
 import bluej.pkgmgr.target.ClassTarget;
 import bluej.pkgmgr.target.Target;
@@ -89,7 +88,6 @@ import javafx.application.Platform;
 import javafx.beans.Observable;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.DoubleExpression;
-import javafx.beans.binding.ObjectExpression;
 import javafx.beans.binding.StringBinding;
 import javafx.beans.binding.StringExpression;
 import javafx.beans.property.*;
@@ -141,6 +139,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -239,6 +238,7 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
     private StringExpression strideFontCSS;
     private final SimpleObjectProperty<Image> imageProperty = new SimpleObjectProperty<>(null);
 
+    @OnThread(Tag.FXPlatform)
     public FrameEditorTab(Project project, EntityResolver resolver, FrameEditor editor, TopLevelCodeElement initialSource)
     {
         super(true);
@@ -306,12 +306,12 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
     }
 
     // Exception-safe wrapper for Future.get
-    @OnThread(Tag.Any)
+    @OnThread(Tag.Worker)
     private static <T> List<T> getFutureList(Future<List<T>> f)
     {
         try
         {
-            return f.get();
+            return f.get(10, TimeUnit.SECONDS);
         }
         catch (Exception e) {
             Debug.reportError("Problem looking up types", e);
@@ -319,15 +319,14 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         }
     }
 
-    @OnThread(Tag.FX)
+    @OnThread(Tag.FXPlatform)
     private Future<List<AssistContentThreadSafe>> importsUpdated(final String x)
     {
-        JavadocResolver javadocResolver = project.getJavadocResolver();
         CompletableFuture<List<AssistContentThreadSafe>> f = new CompletableFuture<>();
         Utility.runBackground(() -> {
             try
             {
-                f.complete(project.getImportScanner().getImportedTypes(x, javadocResolver));
+                f.complete(project.getImportScanner().getImportedTypes(x));
             }
             catch (Throwable t)
             {
@@ -1916,15 +1915,12 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         editor.recordEdits(StrideEditReason.REDO_GLOBAL);
     }
 
+    @OnThread(Tag.FXPlatform)
     private void updateClassContents(FrameState state)
     {
         if (state != null) {
-            //Debug.time("updateClassContents", () -> {
-            final ClassElement classElement = state.getClassElement(projectResolver);
-            if (classElement == null)
-            {
-                return; // Error restoring state, will have been logged already
-            }
+            final ClassElement classElement = state.getClassElement(projectResolver,
+                    editor.getPackage().getQualifiedName());
             getTopLevelFrame().restoreCast(classElement);
             getTopLevelFrame().regenerateCode();
             Node n = state.recallFocus(getTopLevelFrame());
@@ -1932,7 +1928,6 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
             {
                 ensureNodeVisible(n);
             }
-            //});
         }
     }
 
@@ -2082,6 +2077,12 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         return strideFontCSS;
     }
 
+    @Override
+    public double getFontSize()
+    {
+        return PrefMgr.strideFontSizeProperty().get();
+    }
+
     private void calculateBirdseyeRectangle()
     {
         Node n = birdseyeManager.getNodeForRectangle();
@@ -2229,7 +2230,7 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         getTopLevelFrame().insertAtEnd(method.createFrame(this));
     }
 
-    @OnThread(Tag.Any)
+    @OnThread(Tag.Worker)
     private Stream<AssistContentThreadSafe> getAllImportedTypes()
     {
         importedTypesLock.readLock().lock();
@@ -2238,7 +2239,7 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         return Stream.concat(Stream.of(javaLangImports), importedTypesCopy.stream()).map(FrameEditorTab::getFutureList).flatMap(List::stream);
     }
     
-    @OnThread(Tag.Any)
+    @OnThread(Tag.Worker)
     private List<AssistContentThreadSafe> getImportedTypes(Class<?> superType, boolean includeSelf, Set<Kind> kinds)
     {
         if (superType == null)
@@ -2253,7 +2254,7 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
     }
 
     @Override
-    @OnThread(Tag.Any)
+    @OnThread(Tag.Worker)
     public Map<SuggestionList.SuggestionShown, Collection<AssistContentThreadSafe>> getImportSuggestions()
     {
         HashMap<String, Pair<SuggestionList.SuggestionShown, AssistContentThreadSafe>> imports = new HashMap<>();
@@ -2536,7 +2537,8 @@ public class FrameEditorTab extends FXTab implements InteractionManager, Suggest
         });
     }
 
-    private void ensureNodeVisible(Node node)
+    @Override
+    public void ensureNodeVisible(Node node)
     {
         Bounds boundsInScroll = boundsInScroll(node);
         

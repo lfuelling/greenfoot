@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
 
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -31,6 +31,7 @@ import bluej.debugger.DebuggerThread;
 import bluej.editor.EditorWatcher;
 import bluej.editor.moe.BlueJSyntaxView.ParagraphAttribute;
 import bluej.editor.moe.MoeActions.MoeAbstractAction;
+import bluej.pkgmgr.Project;
 import bluej.prefmgr.PrefMgr.PrintSize;
 import bluej.editor.moe.MoeErrorManager.ErrorDetails;
 import bluej.editor.moe.MoeSyntaxDocument.Element;
@@ -40,7 +41,7 @@ import bluej.editor.stride.FrameEditor;
 import bluej.editor.stride.MoeFXTab;
 import bluej.parser.AssistContent;
 import bluej.parser.AssistContent.ParamInfo;
-import bluej.parser.CodeSuggestions;
+import bluej.parser.ExpressionTypeInfo;
 import bluej.parser.ImportsCollection;
 import bluej.parser.ImportsCollection.LocatableImport;
 import bluej.parser.ParseUtils;
@@ -173,7 +174,6 @@ public final class MoeEditor extends ScopeColorsBorderPane
     final static String COMPILED = "compiled";
     // file suffixes
     private final static String CRASHFILE_SUFFIX = "#";
-    private final static String BACKUP_SUFFIX = "~";
 
     // -------- CLASS VARIABLES --------
     private static boolean matchBrackets = false;
@@ -518,12 +518,13 @@ public final class MoeEditor extends ScopeColorsBorderPane
     /**
      * Show the editor window. This includes whatever is necessary of the
      * following: make visible, de-iconify, bring to front of window stack.
-     * 
+     *
      * @param vis  The new visible value
+     * @param openInNewWindow if this is true, the editor opens in a new window
      */
     @Override
     @OnThread(Tag.FXPlatform)
-    public void setEditorVisible(boolean vis)
+    public void setEditorVisible(boolean vis, boolean openInNewWindow)
     {
         if (vis)
         {
@@ -541,8 +542,25 @@ public final class MoeEditor extends ScopeColorsBorderPane
         }
         if (fxTabbedEditor == null)
         {
-            fxTabbedEditor = defaultFXTabbedEditor.get();
+            if (openInNewWindow)
+            {
+                fxTabbedEditor = defaultFXTabbedEditor.get().getProject().createNewFXTabbedEditor();
+            }
+            else
+            {
+                fxTabbedEditor = defaultFXTabbedEditor.get();
+            }
         }
+        else
+        {
+            // Checks if the editor of the selected target is already opened in a tab inside another window,
+            // then do not open it in a new window unless the tab is closed.
+            if (openInNewWindow && !fxTabbedEditor.containsTab(fxTab) )
+            {
+                fxTabbedEditor = defaultFXTabbedEditor.get().getProject().createNewFXTabbedEditor();
+            }
+        }
+
         if (vis)
         {
             fxTabbedEditor.addTab(fxTab, vis, true);
@@ -600,10 +618,8 @@ public final class MoeEditor extends ScopeColorsBorderPane
             Writer writer = null;
             try {
                 // The crash file is used during writing and will remain in
-                // case of a crash during the write operation. The backup
-                // file always contains the last version.
+                // case of a crash during the write operation.
                 String crashFilename = filename + CRASHFILE_SUFFIX;
-                String backupFilename = filename + BACKUP_SUFFIX;
 
                 // make a backup to the crash file
                 FileUtility.copyFile(filename, crashFilename);
@@ -693,8 +709,10 @@ public final class MoeEditor extends ScopeColorsBorderPane
     public boolean displayDiagnostic(Diagnostic diagnostic, int errorIndex, CompileType compileType)
     {
         if (compileType.showEditorOnError())
-            setEditorVisible(true);
-        
+        {
+            setEditorVisible(true, false);
+        }
+
         switchToSourceView();
         
         Element line = getSourceLine((int) diagnostic.getStartLine());
@@ -733,7 +751,7 @@ public final class MoeEditor extends ScopeColorsBorderPane
     }
     
     @Override
-    public void setStepMark(int lineNumber, String message, boolean isBreak,
+    public boolean setStepMark(int lineNumber, String message, boolean isBreak,
             DebuggerThread thread)
     {
         switchToSourceView();
@@ -754,6 +772,8 @@ public final class MoeEditor extends ScopeColorsBorderPane
         if (message != null) {
             info.messageImportant(message);
         }
+        
+        return false;
     }
 
     /**
@@ -1402,7 +1422,7 @@ public final class MoeEditor extends ScopeColorsBorderPane
      * A BlueJEvent was raised. Check whether it is one that we're interested in.
      */
     @Override
-    public void blueJEvent(int eventId, Object arg)
+    public void blueJEvent(int eventId, Object arg, Project prj)
     {
         switch(eventId) {
             case BlueJEvent.DOCU_GENERATED :
@@ -1544,25 +1564,6 @@ public final class MoeEditor extends ScopeColorsBorderPane
         }
     }
     
-    /**
-     * User requests "reload"
-     */
-    public void reload()
-    {
-        if (filename == null) {
-            info.message (Config.getString("editor.info.cannotReload"), Config.getString("editor.info.reload"));
-        }
-        else if (saveState.isChanged())
-        {
-            int answer = DialogManager.askQuestionFX(fxTabbedEditor.getWindow(), "really-reload");
-            if (answer == 0)
-                doReload();
-        }
-        else {
-            doReload();
-        }
-    }
-
     /**
      * Prints source code from Editor
      * 
@@ -1774,7 +1775,7 @@ public final class MoeEditor extends ScopeColorsBorderPane
      */
     public void doClose()
     {
-        setEditorVisible(false);
+        setEditorVisible(false, false);
         if (watcher != null) {
             //setting the naviview visible property when an editor is closed
             //NAVIFX
@@ -2238,21 +2239,21 @@ public final class MoeEditor extends ScopeColorsBorderPane
             if (doc != null)
             {
                 /* Javadoc looks like this:
-                <a name="sampleMethod--">
+                <a id="sampleMethod(java.lang.String)">
                 <!--   -->
                 </a>
-                <ul class="blockList">
-                <li class="blockList">
+                <ul>
+                <li>
                 <h4>sampleMethod</h4>
                  */
 
-                // First find the anchor.  Ignore anchors with names that have dots (they are not methods):
+                // First find the anchor.  Ignore anchors with ids that do not end in a closing bracket (they are not methods):
                 NodeList anchors = doc.getElementsByTagName("a");
                 for (int i = 0; i < anchors.getLength(); i++)
                 {
                     org.w3c.dom.Node anchorItem = anchors.item(i);
-                    org.w3c.dom.Node anchorName = anchorItem.getAttributes().getNamedItem("name");
-                    if (anchorName != null && anchorName.getNodeValue() != null && !anchorName.getNodeValue().contains("."))
+                    org.w3c.dom.Node anchorName = anchorItem.getAttributes().getNamedItem("id");
+                    if (anchorName != null && anchorName.getNodeValue() != null && anchorName.getNodeValue().endsWith(")"))
                     {
                         // Then find the ul child, then the li child of that, then the h4 child of that:
                         org.w3c.dom.Node ulNode = findHTMLNode(anchorItem, org.w3c.dom.Node::getNextSibling, n -> "ul".equals(n.getLocalName()));
@@ -2272,13 +2273,13 @@ public final class MoeEditor extends ScopeColorsBorderPane
 
                             ((EventTarget) newLink).addEventListener("click", e ->
                             {
-                                String[] tokens = anchorName.getNodeValue().split("-");
+                                String[] tokens = anchorName.getNodeValue().split("[(,)]");
                                 List<String> paramTypes = new ArrayList<>();
                                 for (int t = 1; t < tokens.length; t++)
                                 {
                                     paramTypes.add(tokens[t]);
                                 }
-                                focusMethod(tokens[0], paramTypes);
+                                focusMethod(tokens[0].equals("<init>") ? windowTitle : tokens[0], paramTypes);
                             }, false);
                         }
                     }
@@ -2978,7 +2979,6 @@ public final class MoeEditor extends ScopeColorsBorderPane
         //naviView.setMaximumSize(new Dimension(NAVIVIEW_WIDTH, Integer.MAX_VALUE));
         //naviView.setBorder(BorderFactory.createBevelBorder(BevelBorder.LOWERED));
         //dividerPanel=new EditorDividerPanel(naviView, getNaviviewExpandedProperty());
-        //if (!Config.isRaspberryPi()) dividerPanel.setOpaque(false);
 
         //NAVIFX
         //editorPane.getChildren().add(scrollPane);
@@ -3027,7 +3027,7 @@ public final class MoeEditor extends ScopeColorsBorderPane
     private MenuBar createMenuBar()
     {
         return new MenuBar(
-            createMenu("class", "save reload - print - close"),
+            createMenu("class", "save - print - close"),
             createMenu("edit", "undo redo - cut-to-clipboard copy-to-clipboard paste-from-clipboard - indent-block deindent-block comment-block uncomment-block autoindent - insert-method add-javadoc"),
             createMenu("tools", "find find-next find-next-backward replace go-to-line - compile toggle-breakpoint - toggle-interface-view"),
             createMenu("option", "increase-font decrease-font reset-font - key-bindings preferences")
@@ -3270,7 +3270,7 @@ public final class MoeEditor extends ScopeColorsBorderPane
     {
         //need to recreate the dialog each time it is pressed as the values may be different
         ParsedCUNode parser = sourceDocument.getParser();
-        CodeSuggestions suggests = parser == null ? null : parser.getExpressionType(sourcePane.getCaretPosition(),
+        ExpressionTypeInfo suggests = parser == null ? null : parser.getExpressionType(sourcePane.getCaretPosition(),
                 sourceDocument);
         if (suggests != null)
         {
@@ -3317,6 +3317,12 @@ public final class MoeEditor extends ScopeColorsBorderPane
                 public StringExpression getFontCSS()
                 {
                     return editorFontCSS;
+                }
+
+                @Override
+                public double getFontSize()
+                {
+                    return PrefMgr.getEditorFontSize().get();
                 }
 
                 @Override

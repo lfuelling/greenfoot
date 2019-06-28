@@ -212,7 +212,6 @@ public class Reflections {
                 if (executorService != null) {
                     futures.add(executorService.submit(new Runnable() {
                         public void run() {
-                            if (log != null && log.isDebugEnabled()) log.debug("[" + Thread.currentThread().toString() + "] scanning " + url);
                             try{
                                 scan(url);
                             }

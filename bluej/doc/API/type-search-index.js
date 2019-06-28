@@ -1,0 +1,1 @@
+typeSearchIndex = [{"p":"greenfoot","l":"Actor"},{"l":"All Classes","url":"allclasses-index.html"},{"p":"greenfoot","l":"Color"},{"p":"greenfoot","l":"Font"},{"p":"greenfoot","l":"Greenfoot"},{"p":"greenfoot","l":"GreenfootImage"},{"p":"greenfoot","l":"GreenfootSound"},{"p":"greenfoot","l":"MouseInfo"},{"p":"greenfoot","l":"UserInfo"},{"p":"greenfoot","l":"World"}]

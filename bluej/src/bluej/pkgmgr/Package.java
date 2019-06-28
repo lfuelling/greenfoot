@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2010,2011,2012,2013,2014,2015,2016,2017,2018,2019  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -31,6 +31,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 
+import bluej.debugger.DebuggerObject;
 import bluej.extensions.event.DependencyEvent;
 import bluej.views.CallableView;
 import javafx.application.Platform;
@@ -69,7 +70,7 @@ import bluej.extensions.event.CompileEvent;
 import bluej.extmgr.ExtensionsManager;
 import bluej.parser.AssistContent;
 import bluej.parser.AssistContent.CompletionKind;
-import bluej.parser.CodeSuggestions;
+import bluej.parser.ExpressionTypeInfo;
 import bluej.parser.ParseUtils;
 import bluej.parser.nodes.ParsedCUNode;
 import bluej.parser.symtab.ClassInfo;
@@ -1519,7 +1520,7 @@ public final class Package
             }
 
             if (assocTarget != null) {
-                searchCompile(assocTarget, new QuietPackageCompileObserver(null), reason, type);
+                searchCompile(assocTarget, new QuietPackageCompileObserver(Collections.emptyList()), reason, type);
             }
         }
     }
@@ -1812,6 +1813,10 @@ public final class Package
         for (ClassTarget target : classTargets)
         {
             target.removeStepMark();
+        }
+        if (getUI() != null)
+        {
+            getUI().highlightObject(null);
         }
     }
 
@@ -2190,6 +2195,9 @@ public final class Package
      * code with the relevant line highlighted.
      *
      * Note: source name is the unqualified name of the file (no path attached)
+     * 
+     * @return true if the debugger display is already taken care of, or
+     * false if you still want to show the ExecControls window afterwards.
      */
     private boolean showSource(DebuggerThread thread, String sourcename, int lineNo, ShowSourceReason reason, String msg)
     {
@@ -2199,8 +2207,13 @@ public final class Package
         // showEditorMessage:
         Editor targetEditor = editorForTarget(new File(getPath(), sourcename).getAbsolutePath(), bringToFront);
         if (targetEditor != null) {
-            targetEditor.setStepMark(lineNo, msg, reason.isSuspension(), thread);
-            return targetEditor instanceof FrameEditor;
+            DebuggerObject currentObject = thread.getCurrentObject(0);
+            if (getUI() != null)
+            {
+                getUI().highlightObject(currentObject);
+            }
+            
+            return targetEditor.setStepMark(lineNo, msg, reason.isSuspension(), thread);
         }
         else if (reason == ShowSourceReason.BREAKPOINT_HIT) {
             showMessageWithText("break-no-source", sourcename);
@@ -2703,6 +2716,8 @@ public final class Package
         @Override
         public void endCompile(CompileInputFile[] sources, boolean successful, CompileType type, int compilationSequence)
         {
+            List<ClassTarget> targetsToAnalyse = new ArrayList<>();
+            List<ClassTarget> readyToCompileList = new ArrayList<>();
             for (int i = 0; i < sources.length; i++) {
                 String filename = sources[i].getJavaCompileInputFile().getPath();
 
@@ -2718,6 +2733,24 @@ public final class Package
                 }
 
                 t.markCompiled(successful, type);
+                if (t.getState() == State.COMPILED)
+                {
+                    targetsToAnalyse.add(t);
+                }
+                else
+                {
+                    // To prevent an issue that may happen when classes are batched in one compile job
+                    // and an error in one may prevent others being compiled even though they could be 
+                    // compiled separately, we check for all the classes that can be compiled and have
+                    // no direct/indirect dependencies with compile errors to be compiled
+                    if (t.getState() == State.NEEDS_COMPILE && type == CompileType.EXPLICIT_USER_COMPILE)
+                    {
+                        if (!checkDependecyCompilationError(t))
+                        {
+                            readyToCompileList.add(t);
+                        }
+                    }
+                }
                 t.setQueued(false);
                 
                 if (t.isCompiled())
@@ -2749,6 +2782,13 @@ public final class Package
                         ex.printStackTrace();
                     }
                 }
+            }
+            // Compile the classes that have no direct/indirect dependencies that have compile errors
+            doCompile(readyToCompileList, this, CompileReason.USER, CompileType.EXPLICIT_USER_COMPILE);
+
+            for (ClassTarget classTarget : targetsToAnalyse)
+            {
+                classTarget.analyseAfterCompile();
             }
             
             if (type.keepClasses())
@@ -2826,7 +2866,7 @@ public final class Package
             int pos = convertColumn(getLine(e), column) + getLineStart(e);
 
             TreeSet<String> maybeTheyMeant = new TreeSet<>();
-            CodeSuggestions suggests = pcuNode.getExpressionType(pos, e.getSourceDocument());
+            ExpressionTypeInfo suggests = pcuNode.getExpressionType(pos, e.getSourceDocument());
             AssistContent[] values = ParseUtils.getPossibleCompletions(suggests, project.getJavadocResolver(), null);
             if (values != null) {
                 for (AssistContent a : values) {
@@ -3110,5 +3150,48 @@ public final class Package
     public void addCompileObserver(FXCompileObserver fxCompileObserver)
     {
         compileObservers.add(fxCompileObserver);
+    }
+
+    /**
+     * Checks if the class target has dependencies that have compilation errors
+     * @param  classTarget the class target whom direct/indirect dependencies will be checked
+     * @return true if any of the dependencies or their ancestors have a compilation error
+     *         otherwise it returns false
+     */
+    public boolean checkDependecyCompilationError(ClassTarget classTarget)
+    {
+        boolean dependencyError = false;
+        outerloop:
+        for (Dependency d : classTarget.dependencies())
+        {
+            ClassTarget dependent = (ClassTarget) d.getTo();
+            if (dependent.getState() == State.HAS_ERROR && dependent.hasSourceCode())
+            {
+                dependencyError = true;
+                break outerloop;
+            }
+            else
+            {
+                List<Dependency> dependencyParents = dependent.getParents();
+                dependencyError = dependencyParents.stream()
+                        .filter(pv -> pv.getTo().getState() == State.HAS_ERROR)
+                        .findFirst().isPresent();
+                if (dependencyError)
+                {
+                    break outerloop;
+                }
+                //check if the dependant has parents compilation errors
+                for (Dependency parentDependency : dependencyParents)
+                {
+                    ClassTarget dependencyParent = (ClassTarget) parentDependency.getTo();
+                    dependencyError = checkDependecyCompilationError(dependencyParent);
+                    if (dependencyError)
+                    {
+                        break outerloop;
+                    }
+                }
+            }
+        }
+        return dependencyError;
     }
 }

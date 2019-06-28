@@ -19,8 +19,8 @@
 
     <!-- Greenfoot Version Number -->
     <property name="greenfoot.version.major" value="3"/>
-    <property name="greenfoot.version.minor" value="5"/>
-    <property name="greenfoot.version.micro" value="4"/>
+    <property name="greenfoot.version.minor" value="6"/>
+    <property name="greenfoot.version.micro" value="0"/>
     <property name="greenfoot.version.suffix" value="" />
     
     <!-- Greenfoot version to API mapping:        -->
@@ -56,7 +56,7 @@
     <property name="greenfoot.version.nosuffix" value="${greenfoot.version.major}.${greenfoot.version.minor}.${greenfoot.version.micro}"/>
 
     <!-- Suffix added after version number in output files -->
-    <property name="greenfoot.rcsuffix" value="-rc1"/>
+    <property name="greenfoot.rcsuffix" value="-rc3"/>
 
     <!-- Location of the bluej lib dir -->
     <property name="bluej.lib.greenfoot"  location="${bluej_home}/lib/greenfoot"/>
@@ -66,6 +66,19 @@
     <!-- Name and location of the jlayer jar -->  
     <property name="jlayer.jar.name" value="jl1.0.1.jar"/>  
     <property name="jlayer.jar.path" value="${bluej_home}/lib/${jlayer.jar.name}"/>
+
+    <path id="javafx.class.path">
+        <pathelement location="${openjfx_path}/lib/javafx.base.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.controls.jar"/>
+        <!-- Needed because of NSMenuFX -->
+        <pathelement location="${openjfx_path}/lib/javafx.fxml.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.graphics.jar"/>
+        <!-- Needed for sound support, which is BlueJ because of Stride support for sound preview -->
+        <pathelement location="${openjfx_path}/lib/javafx.media.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.properties.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.swing.jar"/>
+        <pathelement location="${openjfx_path}/lib/javafx.web.jar"/>
+    </path>
         
     <!-- The classpath to the bluej classes-->
     <path id="bluej.class.path">
@@ -83,7 +96,6 @@
         <pathelement location="${bluej_home}/lib/opencsv-2.3.jar"/>
         <pathelement location="${bluej_home}/lib/xom-1.2.9.jar"/>
         <pathelement location="${bluej_home}/lib/diffutils-1.2.1.jar"/>
-        <pathelement location="${build_java_home}/jre/lib/ext/jfxrt.jar"/>
     </path>
     <!-- The sourcepath to the bluej classes-->
     <path id="bluej.src.path">
@@ -214,13 +226,11 @@ LICENSE.txt file that accompanied this code.${line.separator}
         <compile srcdir="${src}"
                  destdir="${build}">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
                 <pathelement location="${threadchecker.build}"/>
                 <pathelement location="${threadchecker.pluginbuild}"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
             </classpath>
-            <compilerarg line="-target 1.8" />
-            <compilerarg line="-source 1.8" /> <!-- Otherwise Java 8 (and above) complains -->
             <compilerarg line="-Xmaxerrs 1000"/>
             <compilerarg value="-Xplugin:threadchecker.TCPlugin"/>
         </compile>
@@ -235,10 +245,10 @@ LICENSE.txt file that accompanied this code.${line.separator}
         <!-- Compile the java code from ${test.src} into ${build} -->
         <compile srcdir="${test.src}" destdir="${build}">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
                 <pathelement location="${threadchecker.build}"/>
             </classpath>
-            <compilerarg line="-target 8" />
         </compile>
     </target>
 
@@ -246,16 +256,11 @@ LICENSE.txt file that accompanied this code.${line.separator}
         <!-- Useful for running threadchecker -->
     </target>
 
-    <target name="test" depends="compile-test">
-        <!-- Need to turn verbosity back on to see the test output: -->
-        <script language="javascript">
-            var logger = project.getBuildListeners().firstElement();
-            logger.setMessageOutputLevel(2);
-        </script>
-        
+    <target name="test" depends="compile-test" description="Run tests">
         <junit printsummary="yes" haltonfailure="yes">
             <classpath>
                 <pathelement location="${build}" />
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path" />
             </classpath>
 
@@ -278,6 +283,7 @@ LICENSE.txt file that accompanied this code.${line.separator}
                 <compile srcdir="scenarios/@{scenario}" destdir="scenarios/@{scenario}">
                     <classpath>
                         <path refid="greenfoot.class.path"/>
+                        <path refid="javafx.class.path"/>
                         <path refid="bluej.class.path"/>
                     </classpath>
                 </compile>
@@ -465,7 +471,7 @@ LICENSE.txt file that accompanied this code.${line.separator}
         <copy file="resources/images/export-webpage.png" todir="images"/>
         <!-- Menu button used in image library dialog (gear with drop-arrow) -->
         <copy file="resources/images/menu-button.png" todir="images"/>
-    	<!-- Execution/activity twirler -->
+        <!-- Execution/activity twirler -->
         <copy file="resources/images/swirl.png" todir="images"/>
         <copy file="resources/images/dropdown.png" todir="images"/>
 </target>
@@ -485,7 +491,11 @@ LICENSE.txt file that accompanied this code.${line.separator}
     </target>
     <target name="debian-dist" depends="check-fakeroot">
         <ant dir="${bluej_home}/package" antfile="greenfoot-build.xml" target="debian-dist" />
-        <move file="${bluej_home}/package/greenfoot-${greenfoot.version}${greenfoot.rcsuffix}.deb" tofile="${package}/Greenfoot-linux-${greenfoot.version.nodots}${greenfoot.rcsuffix}.deb" />
+        <move file="${bluej_home}/package/greenfoot-${greenfoot.version}${greenfoot.rcsuffix}.deb" tofile="${package}/Greenfoot-linux-unbundled-${greenfoot.version.nodots}${greenfoot.rcsuffix}.deb" />
+    </target>
+    <target name="debian-bundled-dist" depends="check-fakeroot">
+        <ant dir="${bluej_home}/package" antfile="greenfoot-build.xml" target="debian-bundled-dist" />
+        <move file="${bluej_home}/package/greenfoot-bundled-${greenfoot.version}${greenfoot.rcsuffix}.deb" tofile="${package}/Greenfoot-linux-${greenfoot.version.nodots}${greenfoot.rcsuffix}.deb" />
     </target>
 
     <target name="windows-standalone" depends="update-images, dist">
@@ -507,7 +517,7 @@ LICENSE.txt file that accompanied this code.${line.separator}
     <!-- The simple targets for doing a complete build: -->
     <target name="mac" description="Clean, update version number and build Mac installer" depends="clean,update-version-number,mac-dist"/>
     <target name="windows" description="Clean, update version number and build Windows installers" depends="clean,update-version-number,windows-msi-bundled-dist,windows-standalone"/>
-    <target name="debian" description="Clean, update version number and build Debian/Ubuntu installer (run with fakeroot ant)" depends="clean,update-version-number,dist,debian-dist"/>
+    <target name="debian" description="Clean, update version number and build Debian/Ubuntu installer (run with fakeroot ant)" depends="clean,update-version-number,dist,debian-dist,debian-bundled-dist"/>
 
     <target name="urls-rc" description="Check and print RC links">
         <ant dir="${bluej_home}/package" antfile="greenfoot-build.xml"  target="urls-rc"/>
@@ -567,7 +577,6 @@ LICENSE.txt file that accompanied this code.${line.separator}
                 <!-- <path refid="bluej.class.path"/> -->
                 <path refid="bluej.src.path"/>
                 <pathelement location="${bluej_home}/lib" />
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
                 <pathelement location="/System/Library/Java"/>
                 <!-- <pathelement location="${build}"/> -->
             </classpath>
@@ -591,7 +600,6 @@ LICENSE.txt file that accompanied this code.${line.separator}
                 <pathelement location="${bluej_home}/boot/classes" />
                 <!-- <path refid="bluej.class.path"/> -->
                 <path refid="bluej.src.path"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
                 <pathelement location="/System/Library/Java"/>
                 <!-- <pathelement location="${build}"/> -->
             </classpath>
@@ -618,11 +626,9 @@ LICENSE.txt file that accompanied this code.${line.separator}
             <arg value="${greenfoot.standalone.labels}"/>
 
             <classpath>
-                <!--path refid="bluej.class.path"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
-                <pathelement location="/System/Library/Java"/-->
                 <pathelement location="${greenfoot.standalone.scenario}"/>
                 <pathelement location="${build}"/>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
             </classpath>
 
@@ -636,9 +642,9 @@ LICENSE.txt file that accompanied this code.${line.separator}
         <!-- Compile the java code from ${src} into ${build} -->
         <compile srcdir="${src}" destdir="${standalone.build}">
             <classpath>
+                <path refid="javafx.class.path"/>
                 <path refid="bluej.class.path"/>
                 <pathelement location="${bluej_home}/threadchecker/classes"/>
-                <pathelement location="${build_java_home}/lib/tools.jar"/>
             </classpath>
 
             <include name="greenfoot/core/WorldHandler.java"/>
@@ -900,7 +906,7 @@ LICENSE.txt file that accompanied this code.${line.separator}
         
         <mkdir dir="${bluej_home}/util/classes"/>
         <compile srcdir="${bluej_home}/util/src" destdir="${bluej_home}/util/classes"/>
-        <java classname="DrawVersionOnSplash" classpath="${bluej_home}/util/classes">
+        <java classname="DrawVersionOnSplash" classpath="${bluej_home}/util/classes" fork="yes" jvm="${run_java_home}/${java_command_dir_name}/java">
             <arg value="resources/images/greenfoot-splash.png"/> <!-- original -->
             <arg value="Version ${greenfoot.version}"/> <!-- text -->
             <arg value="${bluej_home}/lib/fonts/SourceSansPro-Bold.ttf"/> <!-- font -->
@@ -909,7 +915,7 @@ LICENSE.txt file that accompanied this code.${line.separator}
             <arg value="145"/> <!-- Y position -->
             <arg value="${bluej_home}/boot/resources/bluej/gen-greenfoot-splash.png"/> <!-- destination -->
         </java>
-        <java classname="DrawVersionOnSplash" classpath="${bluej_home}/util/classes">
+        <java classname="DrawVersionOnSplash" classpath="${bluej_home}/util/classes" fork="yes" jvm="${run_java_home}/${java_command_dir_name}/java">
             <arg value="resources/images/greenfoot-splash@2x.png"/> <!-- original -->
             <arg value="Version ${greenfoot.version}"/> <!-- text -->
             <arg value="${bluej_home}/lib/fonts/SourceSansPro-Bold.ttf"/> <!-- font -->
